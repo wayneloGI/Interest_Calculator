@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Judgment Interest Calculator — Hong Kong</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="brand-mark">§</span>
+        <span class="brand-text">Judgment Interest</span>
+        <span class="brand-sub">Hong Kong</span>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-btn active" data-page="calculator">Calculator</button>
+        <button class="nav-btn" data-page="settings">Rate Table</button>
+      </nav>
+      <div class="header-case">
+        <select id="cases-select" title="Load saved case">
+          <option value="">— Saved cases —</option>
+        </select>
+        <button id="save-case-btn" class="btn-ghost" title="Save current case">Save</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Pages ── -->
+  <main>
+
+    <!-- Calculator page -->
+    <div id="page-calculator" class="page active">
+      <div class="workspace">
+
+        <!-- LEFT: Input panel -->
+        <aside class="input-panel">
+          <section class="panel-section">
+            <h2 class="section-title">Case</h2>
+            <div class="field">
+              <label for="case-name">Reference</label>
+              <input type="text" id="case-name" placeholder="e.g. Smith v Jones [2025] HKCFI 1234">
+            </div>
+          </section>
+
+          <section class="panel-section">
+            <h2 class="section-title">Global Settings</h2>
+            <div class="field">
+              <label for="principal">Principal (HK$)</label>
+              <input type="number" id="principal" min="0.01" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+              <label for="start-date">Claim Start Date</label>
+              <input type="date" id="start-date">
+            </div>
+            <div class="field">
+              <label for="day-count">Day Count Convention</label>
+              <select id="day-count">
+                <option value="Actual/365 Fixed" selected>Actual/365 Fixed</option>
+                <option value="Anniversary/365">Anniversary/365</option>
+                <option value="Actual/Actual">Actual/Actual</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="panel-section" id="periods-section">
+            <h2 class="section-title">
+              Periods
+              <button id="add-period-btn" class="btn-add" title="Add period">+</button>
+            </h2>
+            <div id="periods-container"></div>
+          </section>
+
+          <section class="panel-section">
+            <button id="calculate-btn" class="btn-primary">Calculate</button>
+            <button id="clear-btn" class="btn-ghost">Clear</button>
+          </section>
+
+          <div id="input-error" class="error-banner hidden"></div>
+        </aside>
+
+        <!-- RIGHT: Results panel -->
+        <section class="results-panel" id="results-panel">
+          <div class="results-empty" id="results-empty">
+            <p>Enter a principal, start date and at least one period,<br>then press <em>Calculate</em>.</p>
+          </div>
+
+          <div id="results-content" class="hidden">
+
+            <!-- Summary bar -->
+            <div class="summary-bar">
+              <div class="summary-item">
+                <span class="summary-label">Principal</span>
+                <span class="summary-value" id="sum-principal">—</span>
+              </div>
+              <div class="summary-item summary-item--accent">
+                <span class="summary-label">Total Interest</span>
+                <span class="summary-value" id="sum-interest">—</span>
+              </div>
+              <div class="summary-item summary-item--total">
+                <span class="summary-label">Total Amount</span>
+                <span class="summary-value" id="sum-total">—</span>
+              </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+              <button class="tab active" data-tab="periods">Periods</button>
+              <button class="tab" data-tab="chart">Chart</button>
+              <button class="tab" data-tab="explain">Explanation</button>
+            </div>
+
+            <!-- Periods tab -->
+            <div id="tab-periods" class="tab-pane active">
+              <div class="table-scroll">
+                <table class="data-table" id="periods-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Start</th>
+                      <th>End</th>
+                      <th>Days</th>
+                      <th>Rate (pa)</th>
+                      <th>Year Frac.</th>
+                      <th>Interest</th>
+                      <th>Cumulative</th>
+                      <th>Principal End</th>
+                    </tr>
+                  </thead>
+                  <tbody id="periods-tbody"></tbody>
+                </table>
+              </div>
+              <button class="btn-copy" id="copy-tsv-btn">Copy as TSV</button>
+            </div>
+
+            <!-- Chart tab -->
+            <div id="tab-chart" class="tab-pane hidden">
+              <canvas id="interest-chart"></canvas>
+            </div>
+
+            <!-- Explanation tab -->
+            <div id="tab-explain" class="tab-pane hidden">
+              <div id="explain-content" class="explain-text"></div>
+              <button class="btn-copy" id="copy-explain-btn">Copy text</button>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- Settings / Rate Table page -->
+    <div id="page-settings" class="page hidden">
+      <div class="settings-wrap">
+        <div class="settings-header">
+          <h1 class="settings-title">CJ Judgment Interest Rate Table</h1>
+          <div class="settings-actions">
+            <button id="refresh-rates-btn" class="btn-primary">Check for Updates</button>
+            <span id="refresh-status" class="refresh-status"></span>
+          </div>
+        </div>
+
+        <div id="diff-preview" class="diff-preview hidden">
+          <h3>New entries found</h3>
+          <table class="data-table" id="diff-table">
+            <thead><tr><th>Effective Date</th><th>Rate (% pa)</th></tr></thead>
+            <tbody id="diff-tbody"></tbody>
+          </table>
+          <button id="apply-rates-btn" class="btn-primary">Apply Updates</button>
+          <button id="discard-diff-btn" class="btn-ghost">Discard</button>
+        </div>
+
+        <div class="table-scroll">
+          <table class="data-table" id="rates-table">
+            <thead>
+              <tr>
+                <th>Effective Date</th>
+                <th>Rate (% per annum)</th>
+              </tr>
+            </thead>
+            <tbody id="rates-tbody">
+              <tr><td colspan="2" class="loading-cell">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Modals ── -->
+
+  <!-- Save case modal -->
+  <div id="modal-save" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <h2 class="modal-title">Save Case</h2>
+      <div class="field">
+        <label for="save-name-input">Case name</label>
+        <input type="text" id="save-name-input" placeholder="e.g. Smith v Jones">
+      </div>
+      <div class="modal-actions">
+        <button id="modal-save-confirm" class="btn-primary">Save</button>
+        <button id="modal-save-cancel" class="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop hidden" id="modal-backdrop"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
