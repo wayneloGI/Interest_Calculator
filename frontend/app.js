@@ -130,7 +130,7 @@ function clearError() {
 /* ═══════════════════════════════════════════════════════
    PERIOD MANAGEMENT
    ═══════════════════════════════════════════════════════ */
-function defaultPeriod(id) {
+function defaultPeriod(id, isFirst = true) {
   return {
     id,
     end_date:         "",
@@ -139,7 +139,7 @@ function defaultPeriod(id) {
     nominal_rate:     "",
     rate_basis:       "Per annum",
     compounding_freq: "Annual",
-    include_start_day: true,
+    include_start_day: isFirst,
     include_end_day:   true,
   };
 }
@@ -256,7 +256,8 @@ function renderAllPeriods() {
 
 function addPeriod() {
   const id = ++State.periodCounter;
-  State.periods.push(defaultPeriod(id));
+  const isFirst = State.periods.length === 0;  // true only if no periods yet
+  State.periods.push(defaultPeriod(id, isFirst));
   renderAllPeriods();
   // Focus the last end-date input
   const cards = document.querySelectorAll(".period-card");
