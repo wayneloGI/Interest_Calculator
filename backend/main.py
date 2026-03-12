@@ -48,10 +48,10 @@ from fastapi.staticfiles import StaticFiles
 # Internal modules
 # ---------------------------------------------------------------------------
 
-import calculator as calc
-import rate_presets as rp
-import rate_scraper as rs
-from models import (
+from backend import calculator as calc
+from backend import rate_presets as rp
+from backend import rate_scraper as rs
+from backend.models import (
     CalculateRequest, CalculateResponse,
     CjRateRequest, CjRateResponse,
     RateTableResponse, RateTableEntry,
@@ -77,6 +77,16 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialise the SQLite database on first run."""
+    try:
+        from backend import case_store
+        case_store.init_db()
+    except Exception:
+        pass  # case_store may not be present in all deployments
 
 app.add_middleware(
     CORSMiddleware,
@@ -290,7 +300,7 @@ async def get_cj_rate(query_date: date) -> CjRateResponse:
 def _get_case_store():
     """Lazy import so case_store.py can be developed independently."""
     try:
-        import case_store
+        from backend import case_store
         return case_store
     except ImportError:
         raise HTTPException(
@@ -374,7 +384,13 @@ async def delete_case(case_id: int):
     summary="Return the full CJ rate table",
 )
 async def get_rate_table() -> RateTableResponse:
-    summary = rp.rate_summary()
+    try:
+        summary = rp.rate_summary()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load rate table: {exc}",
+        )
     return RateTableResponse(
         count=summary["count"],
         earliest_date=date.fromisoformat(summary["earliest_date"]) if summary["earliest_date"] else None,

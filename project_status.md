@@ -1,6 +1,6 @@
 # Project Status: Judgment Interest Calculator and Visualiser
 
-**Date Last Updated:** 11 March 2026
+**Date Last Updated:** 12 March 2026
 
 ---
 
@@ -353,13 +353,14 @@ judgment-interest-app/
 - Paste-ready Explanation paragraphs + copy-as-TSV periods table
 - Chart.js interest accumulation chart
 - Saved cases (SQLite)
+- New periods prefill rate fields from previous period
+- Interest Basis field hidden on Period 1 (irrelevant when no prior accumulated interest)
 
 ### How to Run
 ```powershell
-# From project root, venv active:
+# From backend/ directory, venv active:
 $env:APP_API_KEY = "dev-local-key"
-cd backend
-uvicorn main:app --reload --port 8000
+uvicorn backend.main:app --reload --port 8000
 # Open http://localhost:8000
 ```
 
@@ -370,9 +371,22 @@ python3 -m unittest tests.test_calculator tests.test_rate_presets tests.test_cas
 # 108/108 passing
 ```
 
-### Known Minor Issues (web app)
+### Known Minor Issues
 - `test_api.py` has ~7 non-blocking failures (negative-rate test payload artefact and minor field name mismatches)
 - `Dockerfile` not yet tested end-to-end
+
+### Fixed
+| Date | Issue | Fix |
+|------|-------|-----|
+| 11 Mar 2026 | `strftime("%-d")` crash on Windows → 500 on every calculate | Changed to `f"{d.day} {d.strftime('%b')} {d.year}"` in `calculator.py` |
+| 11 Mar 2026 | `tests/__init__.py` missing → `test_case_store` not importable | Added `__init__.py` |
+| 11 Mar 2026 | Browser 401 on all API calls | `main.py` `serve_index` now injects `window.__API_KEY__` into HTML |
+| 11 Mar 2026 | Period 2+ defaulted include_start to checked | `addPeriod()` passes `isFirst` flag to `defaultPeriod()` |
+| 12 Mar 2026 | Rate Table page 500 | `get_rate_table` route wrapped in try/except; `init_db()` called at startup |
+| 12 Mar 2026 | Chart and Explanation tabs blank | Removed `hidden` class from tab panes in `index.html` (`.hidden !important` overrode `.tab-pane.active`) |
+| 12 Mar 2026 | Period inputs reset on add/delete | Added `syncPeriodsFromDOM()` called before every re-render |
+| 12 Mar 2026 | New period doesn't prefill from previous | `defaultPeriod()` accepts `prev`; `addPeriod()` passes last period |
+| 12 Mar 2026 | Interest Basis shown on Period 1 | Hidden via `isFirst` flag in `renderPeriodCard()` |
 
 ---
 
@@ -393,6 +407,7 @@ python3 -m unittest tests.test_calculator tests.test_rate_presets tests.test_cas
 - The **core judgment interest model** is comprehensive for: simple and compound interest on a fixed principal or running sum; HK-style phrasing ("from [date] to [date] at X% per annum") mapped to explicit inputs; multiple day-count conventions and inclusive/exclusive boundary handling.
 - **Formula verification (10 Mar 2026):** All core formulas verified against manual calculations and against *Easy Policy Finance Ltd v 陳海濱* [2025] HKCFI 4295.
 - **Web application MVP (11 Mar 2026):** Full-stack app built and locally verified. Calculator engine, rate presets, case persistence, and frontend all working. Numbers confirmed in browser against judgment figures.
+- **Bug fixes and UI polish (12 Mar 2026):** Rate Table, Chart, Explanation tabs all working. Period state preserved across add/delete. New periods prefill from previous. Interest Basis hidden on Period 1.
 - Future expansion along two axes:
   - **Calculation engine**: richer rate sources (prime + margin), more interest types, tax/fees overlays, judgment text parsing.
   - **Application layer**: document generation, user accounts, deployment.

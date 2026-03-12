@@ -130,16 +130,17 @@ function clearError() {
 /* ═══════════════════════════════════════════════════════
    PERIOD MANAGEMENT
    ═══════════════════════════════════════════════════════ */
-function defaultPeriod(id, isFirst = true) {
+function defaultPeriod(id, isFirst = true, prev = null) {
+  // If a previous period exists, prefill rate-related fields from it
   return {
     id,
-    end_date:         "",
-    interest_type:    "Simple",
-    interest_basis:   "Initial Principal",
-    nominal_rate:     "",
-    rate_basis:       "Per annum",
-    compounding_freq: "Annual",
-    include_start_day: isFirst,
+    end_date:          "",
+    interest_type:     prev ? prev.interest_type    : "Simple",
+    interest_basis:    prev ? prev.interest_basis   : "Initial Principal",
+    nominal_rate:      prev ? prev.nominal_rate     : "",
+    rate_basis:        prev ? prev.rate_basis       : "Per annum",
+    compounding_freq:  prev ? prev.compounding_freq : "Annual",
+    include_start_day: isFirst,   // Period 1: checked. Period 2+: unchecked.
     include_end_day:   true,
   };
 }
@@ -150,6 +151,7 @@ function renderPeriodCard(p, index) {
   card.dataset.periodId = p.id;
 
   const isCompound = p.interest_type === "Compound";
+  const isFirst = index === 0;  // Period 1 always uses Initial Principal — field hidden
 
   card.innerHTML = `
     <div class="period-card-header">
@@ -193,7 +195,7 @@ function renderPeriodCard(p, index) {
         </select>
       </div>
     </div>
-    <div class="field">
+    <div class="field${isFirst ? ' hidden' : ''}">
       <label>Interest Basis</label>
       <select name="interest_basis">
         <option value="Initial Principal" ${p.interest_basis==="Initial Principal"?"selected":""}>Initial Principal</option>
@@ -223,6 +225,7 @@ function renderPeriodCard(p, index) {
 
   // Remove button
   card.querySelector(".period-remove").addEventListener("click", () => {
+    syncPeriodsFromDOM();  // preserve other periods' inputs before re-render
     State.periods = State.periods.filter(x => x.id !== p.id);
     renderAllPeriods();
   });
@@ -254,10 +257,32 @@ function renderAllPeriods() {
   });
 }
 
+function syncPeriodsFromDOM() {
+  /** Read current form values back into State.periods before any re-render. */
+  const cards = document.querySelectorAll(".period-card");
+  cards.forEach(card => {
+    const pid = parseInt(card.dataset.periodId);
+    const entry = State.periods.find(p => p.id === pid);
+    if (!entry) return;
+    const v = name => card.querySelector("[name='" + name + "']");
+    const rateRaw = parseFloat(v("nominal_rate").value);
+    entry.end_date          = v("end_date").value;
+    entry.interest_type     = v("interest_type").value;
+    entry.interest_basis    = v("interest_basis") ? v("interest_basis").value : entry.interest_basis;
+    entry.nominal_rate      = isNaN(rateRaw) ? "" : String(rateRaw / 100);
+    entry.rate_basis        = v("rate_basis").value;
+    entry.compounding_freq  = v("compounding_freq").value;
+    entry.include_start_day = v("include_start_day").checked;
+    entry.include_end_day   = v("include_end_day").checked;
+  });
+}
+
 function addPeriod() {
+  syncPeriodsFromDOM();  // preserve existing inputs before re-render
   const id = ++State.periodCounter;
-  const isFirst = State.periods.length === 0;  // true only if no periods yet
-  State.periods.push(defaultPeriod(id, isFirst));
+  const isFirst = State.periods.length === 0;
+  const prev = State.periods.length > 0 ? State.periods[State.periods.length - 1] : null;
+  State.periods.push(defaultPeriod(id, isFirst, prev));
   renderAllPeriods();
   // Focus the last end-date input
   const cards = document.querySelectorAll(".period-card");
